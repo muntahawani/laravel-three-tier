@@ -11,13 +11,16 @@ pipeline {
         stage('Deploy Containers') {
             steps {
                 sh '''
-                    # Stop existing app container if running
+                    # Stop old container if exists
                     docker stop laravel_app_tier || true
                     docker rm laravel_app_tier || true
                     
-                    # Build and run using native Docker commands (No compose dependency)
-                    docker build -t laravel-app:latest .
-                    docker run -d --name laravel_app_tier --network laravel-app_app_network -p 8000:8000 laravel-app:latest
+                    # Run app container directly using pre-cached runtime
+                    docker run -d --name laravel_app_tier \
+                      --network laravel-app_app_network \
+                      -v $(pwd):/var/www/html \
+                      -p 8000:8000 \
+                      php:8.2-alpine php -S 0.0.0.0:8000 -t /var/www/html/public
                 '''
             }
         }
@@ -25,7 +28,7 @@ pipeline {
         stage('Verify 3-Tier Status') {
             steps {
                 sh '''
-                    sleep 5
+                    sleep 3
                     docker ps --filter "name=laravel_"
                     curl -I http://localhost:8000 || true
                 '''
